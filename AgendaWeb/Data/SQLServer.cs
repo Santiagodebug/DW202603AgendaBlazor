@@ -2,7 +2,7 @@
 
 namespace AgendaWeb.Data
 {
-    public class SQLServer
+public class SQLServer
     {
         private readonly string _connectionString;
 
@@ -11,38 +11,182 @@ namespace AgendaWeb.Data
             _connectionString = connectionString;
         }
 
-        public int NonQuery(string query, SqlParameter[] parameters = null)
+        public SqlConnection GetConnection()
         {
-            using (SqlConnection connection = new SqlConnection(_connectionString))
-            {
-                using (SqlCommand command = new SqlCommand(query, connection))
-                {
-                    if (parameters != null)
-                    {
-                        command.Parameters.AddRange(parameters);
-                    }
-                    connection.Open();
-                    return command.ExecuteNonQuery();
-                }
-            }
+            return new SqlConnection(_connectionString);
         }
 
-        public T? Scalar<T>(string query, SqlParameter[]? parameters = null)
+        public async Task<SqlTransaction> CrearTransactionAsync(SqlConnection connection)
         {
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            ArgumentNullException.ThrowIfNull(connection, nameof(connection));
+            if (connection.State != ConnectionState.Open)
             {
-                using (SqlCommand command = new SqlCommand(query, connection))
-                {
-                    if (parameters != null)
-                    {
-                        command.Parameters.AddRange(parameters);
-                    }
-                    connection.Open();
-                    object respuesta = command.ExecuteScalar();
-
-                    return respuesta is T value ? value: default;
-                }
+                await connection.OpenAsync();
             }
+            return (SqlTransaction)await connection.BeginTransactionAsync();
+        }
+
+        public async Task<int> NonQueryAsync(string query, SqlParameter[] parameters = null)
+        {
+            await using var connection = GetConnection();
+            await using var command = new SqlCommand(query, connection);
+            if (parameters != null)
+            {
+                command.Parameters.AddRange(parameters);
+            }
+            await connection.OpenAsync();
+            return await command.ExecuteNonQueryAsync();
+        }
+        public async Task<int> NonQueryAsync(SqlConnection connection, SqlTransaction transaction, string query, SqlParameter[] parameters = null)
+        {
+            ArgumentNullException.ThrowIfNull(connection, nameof(connection));
+
+            await using var command = new SqlCommand(query, connection, transaction);
+
+            if (parameters != null)
+            {
+                command.Parameters.AddRange(parameters);
+            }
+
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+            }
+
+            return await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task<T> ScalarAsync<T>(string query, SqlParameter[] parameters = null)
+        {
+            await using SqlConnection sqlConnection = GetConnection();
+            await using SqlCommand sqlCommand = new(query, sqlConnection)
+            {
+                CommandType = CommandType.Text
+            };
+
+            if (parameters is not null)
+            {
+                sqlCommand.Parameters.AddRange(parameters);
+            }
+
+            await sqlConnection.OpenAsync();
+            object result = await sqlCommand.ExecuteScalarAsync();
+
+            return result is T value ? value : default;
+        }
+
+        public async Task<T> ScalarAsync<T>(SqlConnection connection, SqlTransaction transaction, string query, SqlParameter[] parameters = null)
+        {
+            ArgumentNullException.ThrowIfNull(connection, nameof(connection));
+            await using SqlCommand sqlCommand = new(query, connection, transaction)
+            {
+                CommandType = CommandType.Text
+            };
+
+            if (parameters is not null)
+            {
+                sqlCommand.Parameters.AddRange(parameters);
+            }
+
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+            }
+
+
+            object result = await sqlCommand.ExecuteScalarAsync();
+
+            if (result is null || result is DBNull)
+                return default;
+
+            return (T)Convert.ChangeType(result, typeof(T));
+        }
+        public async Task<T> ReaderAsync<T>(string query, SqlParameter[] parameters = null) where T : class, new()
+        {
+            await using SqlConnection sqlConnection = GetConnection();
+            await using SqlCommand sqlCommand = new(query, sqlConnection)
+            {
+                CommandType = CommandType.Text
+            };
+
+            if (parameters is not null)
+            {
+                sqlCommand.Parameters.AddRange(parameters);
+            }
+
+            await sqlConnection.OpenAsync();
+            await using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync();
+
+            var props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            if (await reader.ReadAsync())
+            {
+                T item = new();
+
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    string columnName = reader.GetName(i);
+
+                    var property = props.FirstOrDefault(p =>
+                        string.Equals(p.Name, columnName, StringComparison.OrdinalIgnoreCase));
+
+                    if (property != null && !reader.IsDBNull(i))
+                    {
+                        object value = reader.GetValue(i);
+                        object converted = Convert.ChangeType(value, Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType);
+                        property.SetValue(item, converted);
+                    }
+                }
+
+                return item;
+            }
+
+            return null;
+        }
+        public async Task<List<T>> ReaderListAsync<T>(string query, SqlParameter[] parameters = null) where T : class, new()
+        {
+
+            await using SqlConnection sqlConnection = GetConnection();
+            await using SqlCommand sqlCommand = new(query, sqlConnection)
+            {
+                CommandType = CommandType.Text
+            };
+
+            if (parameters is not null)
+            {
+                sqlCommand.Parameters.AddRange(parameters);
+            }
+
+            await sqlConnection.OpenAsync();
+            await using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync();
+
+            var lista = new List<T>();
+            var props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            while (await reader.ReadAsync())
+            {
+                T item = new();
+
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    string columnName = reader.GetName(i);
+
+                    var property = props.FirstOrDefault(p =>
+                        string.Equals(p.Name, columnName, StringComparison.OrdinalIgnoreCase));
+
+                    if (property != null && !reader.IsDBNull(i))
+                    {
+                        object value = reader.GetValue(i);
+                        object converted = Convert.
+                            ChangeType(value, Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType);
+                        property.SetValue(item, converted);
+                    }
+                }
+
+                lista.Add(item);
+            }
+
+            return lista;
         }
     }
 }
