@@ -42,5 +42,34 @@ namespace AgendaWeb.Services
             };
             return await _contactoCommand.ActualizarContactoAsync(id, contacto);
         }
+
+        public async Task<List<ContactoDto>> ObtenerTodosAsync()
+        {
+            List<Contacto> contactos = await _contactoCommand.ObtenerTodosAsync();
+
+            List<ContactoDto> contactosDto = new List<ContactoDto>();
+
+            foreach (var c in contactos)
+            {
+                ContactoDto contactoDto = new ContactoDto
+                {
+                    Id = c.Id,
+                    Nombre = c.Nombre,
+                    Telefono = c.Telefono,
+                    Email = c.Email
+                };
+                contactosDto.Add(contactoDto);
+            }
+            // Usando LINQ para proyectar cada Contacto a ContactoDto
+            //List<ContactoDto> contactosDto = contactos.Select(
+            //    c => new ContactoDto //c conctacto y contactoDto es el nuevo objeto que se va a crear
+            //    {
+            //        Id = c.Id,
+            //        Nombre = c.Nombre,
+            //        Telefono = c.Telefono,
+            //        Email = c.Email
+            //    }).ToList();
+
+            return contactosDto;
+        }
     }
-}

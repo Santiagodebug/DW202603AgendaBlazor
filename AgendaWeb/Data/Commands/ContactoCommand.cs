@@ -54,5 +54,13 @@ namespace AgendaWeb.Data.Commands
             };
             return await _sqlServer.NonQueryAsync(query, parameters);
         }
+
+        public async Task<List<Contacto>> ObtenerTodosAsync() 
+        {
+            string query = "SELECT Id, Nombre, Telefono, Email FROM Contactos ORDER BY Nombre";
+            List <Contacto>contactos = new List<Contacto>();
+            contactos = await _sqlServer.ReaderListAsync<Contacto>(query);
+            return contactos;
+        }
     }
 }
