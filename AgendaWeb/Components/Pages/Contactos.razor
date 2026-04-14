@@ -3,7 +3,7 @@
 <h3>Contactos</h3>
 
 <NavLink class="btn btn-primary mb-3" href="contactos/nuevo">
-    Crear Nuevo Contacto
+    <i class="bi bi-person-plus-fill"></i> Crear Nuevo Contacto
 </NavLink>
 
 @if (CargandoDatos)
@@ -43,8 +43,12 @@ else
                         <td>@contacto.Telefono</td>
                         <td>@contacto.Email</td>
                         <td>
-                 <NavLink class="btn btn-sm btn-secondary me-1">Editar</NavLink>
-                 <button class="btn btn-sm btn-danger">Eliminar</button>
+                            <NavLink class="btn btn-sm btn-outline-secondary me-1">
+                                <i class="bi bi-pencil-square"></i>
+                                </NavLink>
+                 <button class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash3"></i>
+                 </button>
                         </td>
                     </tr>
                 }

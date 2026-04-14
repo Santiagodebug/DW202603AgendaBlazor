@@ -59,6 +59,7 @@ namespace AgendaWeb.Data.Commands
         {
             string query = "SELECT Id, Nombre, Telefono, Email " +
                 "FROM Contactos " +
+                //"{ WHERE Nombre LIKE '%gael%'} " +
                 "ORDER BY Nombre";
             List<Contacto> contactos = new List<Contacto>();
             contactos = await _sqlServer.ReaderListAsync<Contacto>(query);
